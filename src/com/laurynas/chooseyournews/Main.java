@@ -10,11 +10,14 @@ import org.jsoup.helper.Validate;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
 import java.io.IOException;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,7 +26,7 @@ import java.util.regex.Pattern;
  * Example program to list links from a URL.
  */
 public class Main{
-    public static void main(String[] args) throws IOException {
+    public static Headline[] main() throws IOException {
         Document doc = null;
         try {
             doc = Jsoup.connect("http://www.delfi.lt/sportas/").get();
@@ -31,15 +34,40 @@ public class Main{
             e.printStackTrace();
         }
         String HTML = getContent(doc , "container-col-left").html();
-        List<String> allNames = getAllThingsBetween("\">", "</a>&nbsp;", HTML);
-        for(String s : allNames){
-            System.out.println(s);
+        String[] parts = HTML.split("<div class=\"content-new tb-show-publishtime\">");
+        List<Headline> headlines = new ArrayList<>();
+        for(String s : parts){
+            List<String> bigNews = getAllThingsBetween("<a class=\"article-title\" href=\"", "</a>", s);
+            for(String news : bigNews){
+                String[] parts1 = news.split("\">");
+                String headline = parts1[1];
+                String link = parts1[0];
+                String tema = link.split("/")[4];
+                if(!headlines.contains(new Headline(headline, link, tema)))headlines.add(new Headline(headline, link, tema));
+            }
         }
-        List<String> Topics = getAllThingsBetween("<a class=\"category-header-link\" href=\"", "</a>", HTML);
-        for(String s : Topics){
-            s = s.split("\">")[1];
-            System.out.println(s);
+        List<Headline> removables = new ArrayList<>();
+        for(int i = 0;i < headlines.size();i++){
+            Headline current = headlines.get(i);
+            int a = 0;
+            for(Headline h : headlines){
+                if(h.getHeadline().equals(current.getHeadline()) && headlines.indexOf(h) != headlines.indexOf(current)){
+                    removables.add(current);
+                }
+            }
+            System.out.println(a);
         }
+        for(Headline r : removables)headlines.remove(r);
+        Headline[] headlinesArray = headlines.toArray(new Headline[headlines.size()]);
+        for(int i = 0;i < headlinesArray.length-1;i++){
+            if(headlinesArray[i].getTema().compareTo(headlinesArray[i+1].getTema()) < 0 ){
+                Headline temp = headlinesArray[i];
+                headlinesArray[i] = headlinesArray[i + 1];
+                headlinesArray[i + 1] = temp;
+                i = 0;
+            }
+        }
+        return headlinesArray;
     }
 
     public static Elements getContent(Document d, String div) {
